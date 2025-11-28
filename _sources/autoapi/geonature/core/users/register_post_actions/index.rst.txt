@@ -1,0 +1,83 @@
+geonature.core.users.register_post_actions
+==========================================
+
+.. py:module:: geonature.core.users.register_post_actions
+
+.. autoapi-nested-parse::
+
+   Action triggered after register action (create temp user, change password etc...)
+
+
+
+Functions
+---------
+
+.. autoapisummary::
+
+   geonature.core.users.register_post_actions.validators_emails
+   geonature.core.users.register_post_actions.validate_temp_user
+   geonature.core.users.register_post_actions.execute_actions_after_validation
+   geonature.core.users.register_post_actions.create_dataset_user
+   geonature.core.users.register_post_actions.inform_user
+   geonature.core.users.register_post_actions.send_email_for_recovery
+
+
+Module Contents
+---------------
+
+.. py:function:: validators_emails()
+
+   Returns a list of validators emails
+
+
+.. py:function:: validate_temp_user(data)
+
+   Send an email after the action of account creation.
+
+   Parameters
+   ----------
+   data : dict
+       Must contain the token of the temp user. Example : {"token": "iamavalidtoken"}
+
+
+
+.. py:function:: execute_actions_after_validation(data)
+
+   Execute post actions after a temp user has been validated.
+   If AUTO_DATASET_CREATION is set to True, create a personal JDD and AF
+   for the user. Then, send an email to the user to inform him of the
+   creation of his account.
+
+
+.. py:function:: create_dataset_user(user)
+
+   After dataset validation, add a personal Acquisition Framework and Dataset
+   so the user can add new datasets.
+
+   Parameters
+   ----------
+   user : dict
+       The user data
+
+
+.. py:function:: inform_user(user)
+
+   Send an email to inform the user that his account was validate.
+
+   Parameters
+   ----------
+   user : dict
+       The user data
+
+
+.. py:function:: send_email_for_recovery(user)
+
+   Send an email with the login of the role and the possibility to reset
+   its password
+
+   Parameters
+   ----------
+   user : dict
+       The user data
+
+

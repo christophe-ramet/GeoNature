@@ -1,0 +1,118 @@
+name: pytest
+
+on:
+  push:
+    branches:
+      - master
+      - hotfixes
+      - develop
+      - hotfix/geonature2_16_4
+  pull_request:
+    branches:
+      - master
+      - hotfixes
+      - develop
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        debian-version: ["11", "12"]
+        include:
+          - debian-version: "11"
+            python-version: "3.9"
+            postgres-version: "13"
+            postgis-version: "3.2"
+          - debian-version: "12"
+            python-version: "3.11"
+            postgres-version: "15"
+            postgis-version: "3.3"
+
+    name: Debian ${{ matrix.debian-version }}
+
+    services:
+      postgres:
+        image: ghcr.io/pnx-si/geonature-db:latest
+        env:
+          POSTGRES_DB: geonature2db
+          POSTGRES_PASSWORD: geonatadmin
+          POSTGRES_USER: geonatadmin
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd pg_isready
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+      redis:
+        image: redis
+        ports:
+          - 6379:6379
+        options: >-
+          --health-cmd "redis-cli ping"
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          submodules: true
+      - name: Set up Python ${{ matrix.python-version }}
+        uses: actions/setup-python@v5
+        with:
+          python-version: ${{ matrix.python-version }}
+          cache: "pip"
+      - name: Install GDAL
+        run: |
+          sudo apt update
+          sudo apt install -y libgdal-dev
+      - name: Install dependencies
+        if: github.base_ref == 'master'
+        run: |
+          echo 'Installation des requirements de prod'
+          python -m pip install --upgrade pip
+          python -m pip install \
+            -e ..[tests] \
+            -r requirements.txt
+        working-directory: ./backend
+      - name: Install dependencies
+        if: github.base_ref != 'master'
+        run: |
+          echo 'Installation des requirements de dev'
+          python -m pip install --upgrade pip
+          python -m pip install \
+            -e ..[tests] \
+            -r requirements-dev.txt
+        working-directory: ./backend
+
+      - name: Install core modules backend
+        run: |
+          pip install -e contrib/occtax
+          pip install -e contrib/gn_module_occhab
+          pip install -e contrib/gn_module_validation
+      - name: Install core modules database
+        run: |
+          geonature db autoupgrade
+          geonature upgrade-modules-db
+          geonature db downgrade ref_geo_inpn_grids_50@base
+        env:
+          GEONATURE_CONFIG_FILE: config/test_config.toml
+      - name: Show database status
+        run: |
+          geonature db status --dependencies
+        env:
+          GEONATURE_CONFIG_FILE: config/test_config.toml
+      - name: Test with pytest
+        run: |
+          pytest -v --cov --cov-report xml
+        env:
+          GEONATURE_CONFIG_FILE: config/test_config.toml
+      - name: Upload coverage to Codecov
+        if: ${{ matrix.debian-version == '12' }}
+        uses: codecov/codecov-action@v4
+        with:
+          token: ${{ secrets.CODECOV_TOKEN }}
+          flags: pytest

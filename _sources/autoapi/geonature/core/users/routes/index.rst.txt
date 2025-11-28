@@ -1,0 +1,170 @@
+geonature.core.users.routes
+===========================
+
+.. py:module:: geonature.core.users.routes
+
+
+Attributes
+----------
+
+.. autoapisummary::
+
+   geonature.core.users.routes.routes
+   geonature.core.users.routes.log
+   geonature.core.users.routes.s
+   geonature.core.users.routes.user_fields
+   geonature.core.users.routes.organism_fields
+
+
+Functions
+---------
+
+.. autoapisummary::
+
+   geonature.core.users.routes.get_roles_by_menu_id
+   geonature.core.users.routes.get_roles_by_menu_code
+   geonature.core.users.routes.get_listes
+   geonature.core.users.routes.get_role
+   geonature.core.users.routes.get_roles
+   geonature.core.users.routes.get_organismes
+   geonature.core.users.routes.get_organismes_jdd
+   geonature.core.users.routes.check_sign_up_enabled
+   geonature.core.users.routes.inscription
+   geonature.core.users.routes.login_recovery
+   geonature.core.users.routes.confirmation
+   geonature.core.users.routes.update_role
+   geonature.core.users.routes.change_password_route
+   geonature.core.users.routes.new_password
+
+
+Module Contents
+---------------
+
+.. py:data:: routes
+
+.. py:data:: log
+
+.. py:data:: s
+
+.. py:data:: user_fields
+
+.. py:data:: organism_fields
+
+.. py:function:: get_roles_by_menu_id(id_menu)
+
+   Returns the list of roles associated with a menu
+
+   Parameters
+   ----------
+   id_menu : int
+       The id of user list (utilisateurs.bib_list)
+   nom_complet : str, optional
+       Beginning of complete name of the role
+
+   Returns
+   -------
+   list of dict
+       List of roles associated with the menu
+
+
+.. py:function:: get_roles_by_menu_code(code_liste)
+
+   Returns the list of roles associated with a user list (identified by its code)
+
+   Parameters
+   ----------
+   code_liste : str
+       The code of user list (utilisateurs.t_lists)
+   nom_complet : str, optional
+       Beginning of complete name of the role, default None
+
+   Returns
+   -------
+   list
+       A list of roles associated with the user list
+
+
+.. py:function:: get_listes()
+
+.. py:function:: get_role(id_role)
+
+   Get role detail
+
+   Parameters
+   ----------
+   id_role : int
+       the id user
+
+   Returns
+   -------
+   dict
+       A dictionary containing the role detail
+
+
+.. py:function:: get_roles()
+
+   Get all roles
+
+   .. :quickref: User;
+
+
+.. py:function:: get_organismes()
+
+   Get all organisms
+
+   .. :quickref: User;
+
+
+.. py:function:: get_organismes_jdd()
+
+   Get all organisms and the JDD where there are actor and where
+   the current user hase autorization with its cruved
+
+   .. :quickref: User;
+
+
+.. py:function:: check_sign_up_enabled(key)
+
+   Decorator to check if a user management feature is enabled.
+
+   Parameters
+   ----------
+   key : str
+       The key of the feature. Must be one of:
+       ENABLE_SIGN_UP, ENABLE_ACCOUNT_MANAGEMENT, AUTO_ACCOUNT_CREATION
+
+
+.. py:function:: inscription()
+
+   Add a user to temporary users table from the GeoNature interface
+   Works according to the 'ENABLE_SIGN_UP' authorization in the config.
+
+
+.. py:function:: login_recovery()
+
+   Send an email with the user login and a link to reset its password
+   Only works if 'ENABLE_SIGN_UP' is enabled
+
+
+.. py:function:: confirmation()
+
+   Validate a user account after a request (this action is triggered by the link in the email)
+   Create a personal JDD as post_action if the parameter AUTO_DATASET_CREATION is set to True
+
+
+.. py:function:: update_role()
+
+   Modify the role of the user associated with the current token.
+
+
+.. py:function:: change_password_route()
+
+   Change the password of the connected user
+
+
+.. py:function:: new_password()
+
+   Changes the password of a user after they requested a password recovery
+   Requires a token sent by mail to the user
+
+
