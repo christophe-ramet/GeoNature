@@ -38,7 +38,7 @@ describe('Testing metadata', () => {
     cy.get('[data-qa="pnx-metadata-exit-af"]').click();
   });
 
-  it('should display "jeux de données"', () => {
+  it('should display "jeu de données"', () => {
     cy.get('[data-qa="pnx-metadata-acq-framework-header-' + caUUID + '"]').click();
     cy.get('[data-qa="pnx-metadata-jdd-' + jddUUID + '"]').contains(jdd);
     cy.get('[data-qa="pnx-metadata-jdd-actif-' + jddUUID + '"]').click();
@@ -59,7 +59,7 @@ describe('Testing metadata', () => {
     });
   });
 
-  it('should create a new "cardre d\'acquisition"', () => {
+  it('should create a new "cadre d\'acquisition"', () => {
     // cy.visit('/#/metadata');
 
     cy.get('[data-qa="pnx-metadata-add-af"]').click();
@@ -105,7 +105,7 @@ describe('Testing metadata', () => {
     cy.get('[data-qa="pnx-metadata-acq-framework-name"]').contains(newCadreAcq.name);
   });
 
-  it('should create a new "jeux de données"', () => {
+  it('should create a new "jeu de données"', () => {
     cy.visit('/#/metadata');
     cy.get('[data-qa="pnx-metadata-add-jdd"]').click();
 
@@ -168,15 +168,63 @@ describe('Testing metadata', () => {
     cy.get('[data-qa="pnx-metadata-exit-jdd"]').click();
   });
 
-  it('should delete the new "jeux de données"', () => {
+  it('should delete the new "jeu de données"', () => {
+    // Search for the parent CA
     cy.get('[data-qa="pnx-metadata-search"]').clear();
-    cy.get('[data-qa="pnx-metadata-search"]').type(newJdd.name);
-    cy.wait(2000);
-    cy.get('[data-qa="pnx-metadata-acq-framework-header-' + caUUID + '"]').click();
+    cy.get('[data-qa="pnx-metadata-search"]').type(cadreAcq);
+
+    // Wait for the parent CA to display and click to display its JDD
+    cy.get('[data-qa="pnx-metadata-acq-framework-header-' + caUUID + '"]')
+      .should('be.visible')
+      .click();
+
+    // Search and click on the delete button for the new JDD
     cy.get('[data-qa="pnx-metadata-dataset-name-' + newJdd.name + '"] td > button').click({
       multiple: true,
       force: true,
     });
+
+    // Intercept the delete request to know when it completes
+    cy.intercept('DELETE', '**/meta/dataset/*').as('deleteDataset');
+
+    // Wait for and confirm the deletion dialog
+    cy.get('[data-qa="confirmation-dialog-yes"]').should('be.visible').click({
+      multiple: true,
+      force: true,
+    });
+
+    // Wait for the dialog to close and the API call to complete
+    cy.get('[data-qa="confirmation-dialog-yes"]').should('not.exist');
+    cy.wait('@deleteDataset');
+
+    // Verify the new JDD is no longer present while the remaining JDD is visible
+    cy.get('[data-qa="pnx-metadata-acq-framework-header-' + caUUID + '"]')
+      .should('be.visible')
+      .click();
+    cy.get('[data-qa="pnx-metadata-dataset-name-' + jdd + '"]').should('be.visible');
+    cy.get('[data-qa="pnx-metadata-dataset-name-' + newJdd.name + '"]').should('not.exist');
+  });
+
+  it('should delete the new "cadre d\'acquisition"', () => {
+    // Find the panel that contains the CA name and click its delete button
+    cy.contains('mat-expansion-panel', newCadreAcq.name)
+      .find('[mattooltip="Supprimer le cadre d\'acquisition"]')
+      .click({
+        force: true,
+        multiple: true,
+      });
+
+    // Wait for and confirm the deletion dialog
+    cy.get('[data-qa="confirmation-dialog-yes"]').should('be.visible').click({
+      force: true,
+      multiple: true,
+    });
+    // Wait for the dialog to close
+    cy.get('[data-qa="confirmation-dialog-yes"]').should('not.exist');
+
+    // Verify the new CA is no longer present while the old CA is visible
+    cy.get('[data-qa="pnx-metadata-acq-framework-header-' + caUUID + '"]').should('be.visible');
+    cy.contains('mat-expansion-panel', newCadreAcq.name).should('not.exist');
   });
 
   it('should display data of the dataset in synthese', () => {
