@@ -3,12 +3,14 @@ import { UntypedFormGroup, UntypedFormArray, UntypedFormBuilder, Validators } fr
 import { BehaviorSubject, ConnectableObservable, forkJoin, Observable, of } from 'rxjs';
 import { tap, filter, switchMap, map, publish } from 'rxjs/operators';
 
+
 import { ActorFormService } from './actor-form.service';
 import { FormService } from '@geonature_common/form/form.service';
 import { DataFormService } from '@geonature_common/form/data-form.service';
 import { ModuleService } from '@geonature/services/module.service';
 
 import { NgbDateParserFormatter } from '@ng-bootstrap/ng-bootstrap';
+
 
 @Injectable()
 export class AcquisitionFrameworkFormService {
@@ -18,13 +20,14 @@ export class AcquisitionFrameworkFormService {
   public additionalFieldsForm: Array<any> = [];
   public queryParamsSource: BehaviorSubject<Object> = new BehaviorSubject({});
 
+
   constructor(
     private fb: UntypedFormBuilder,
     private actorFormS: ActorFormService,
     private formS: FormService,
     private dataFormService: DataFormService,
     private _moduleService: ModuleService,
-    private dateParser: NgbDateParserFormatter
+    private dateParser: NgbDateParserFormatter,
   ) {
     this.initForm();
     this.setObservables();
@@ -164,13 +167,56 @@ export class AcquisitionFrameworkFormService {
 
     const queryParamsSourceAfterFormInit = this.queryParamsSource
       .asObservable()
-      .pipe(publish()) as ConnectableObservable<any>;
+      .pipe(
+        tap(() => this.reset()),
+        tap(() => {
+          this.additionalFieldsForm = [];
+        }),
+        switchMap((af) =>
+          af !== null ? this.acquisition_framework.asObservable() : this.initialValues
+        ),
+        map((value) => {
+          if (value.cor_af_actor) {
+            if (this.actorFormS.nbMainContact(value.cor_af_actor) == 0) {
+              value.cor_af_actor.push({
+                id_nomenclature_actor_role: this.actorFormS.getIDRoleTypeByCdNomenclature('1'),
+              });
+            }
+            value.cor_af_actor.forEach((actor) => {
+              this.addActor(this.actors, actor);
+            });
+          }
+          if (value.bibliographical_references) {
+            value.bibliographical_references.forEach((e) => {
+              this.addBibliographicalReferences();
+            });
+          }
+          return value;
+        }),
+        // Get additional fields from acquisition framework
+        switchMap((acquisition_framework) => {
+          let additionnalFieldsObservable: Observable<any>;
+          additionnalFieldsObservable = this.getAdditionalFields(['METADATA_CADRE_ACQUISITION']);
+          return forkJoin([of(acquisition_framework), additionnalFieldsObservable]);
+        }),
+        map(([acquisition_framework, additional_data]) => {
+          additional_data.forEach((field) => {
+            // Set value of field
+            if (acquisition_framework.additional_data[field.attribut_name] !== undefined) {
+              field.value = acquisition_framework.additional_data[field.attribut_name];
+            }
+          });
 
-    queryParamsSourceAfterFormInit.subscribe((params) => {
-      this.setFromParams(params);
-    });
-
-    afSource.subscribe(queryParamsSourceAfterFormInit.connect.bind(queryParamsSourceAfterFormInit));
+          return [acquisition_framework, additional_data];
+        }),
+        // Set the additional fields form
+        tap(([acquisition_framework, additional_data]) => {
+          this.additionalFieldsForm = additional_data;
+        }),
+        // Map to return acquisition framework data only
+        map(([acquisition_framework, additional_data]) => acquisition_framework)
+      )
+      .subscribe((value: any) => this.form.patchValue(value));
 
     //gère lactivation/désactivation de la zone de saisie du framework Parent
     this.form.get('is_parent').valueChanges.subscribe((value: boolean) => {
