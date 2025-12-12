@@ -7,7 +7,7 @@ import json
 import logging
 from lxml import etree as ET
 
-from flask import Blueprint, current_app, request, Response, g, render_template
+from flask import Blueprint, current_app, request, Response, g, render_template, jsonify
 
 from sqlalchemy import inspect
 from sqlalchemy.exc import DatabaseError
@@ -20,7 +20,6 @@ from marshmallow import ValidationError, EXCLUDE
 from sqlalchemy.exc import IntegrityError
 from psycopg2.errors import UniqueViolation
 
-
 from geonature.utils.config import config
 from geonature.utils.env import db
 from geonature.core.gn_commons.routes import _get_additional_fields
@@ -32,16 +31,12 @@ from geonature.core.gn_permissions.decorators import login_required
 from geonature.utils.errors import GeoNatureError
 
 from pypnnomenclature.models import TNomenclatures
-from pypnusershub.db.models import User
 
 from geonature.core.gn_meta.models import (
     TDatasets,
     CorDatasetActor,
     TAcquisitionFramework,
     CorAcquisitionFrameworkActor,
-)
-from geonature.core.gn_meta.repositories import (
-    get_metadata_list,
 )
 from geonature.core.gn_meta.schemas import (
     AcquisitionFrameworkSchema,
@@ -53,14 +48,12 @@ from werkzeug.datastructures import Headers
 from geonature.core.gn_permissions import decorators as permissions
 from geonature.core.gn_permissions.tools import get_scopes_by_action
 import geonature.utils.filemanager as fm
-import geonature.utils.utilsmails as mail
 
 from ref_geo.models import LAreas
 
 # FIXME: remove any reference to external modules from GeoNature core
 if "OCCHAB" in config:
     from gn_module_occhab.models import OccurenceHabitat, Station
-
 
 routes = Blueprint("gn_meta", __name__, cli_group="metadata")
 
@@ -491,19 +484,44 @@ def get_export_pdf_dataset(id_dataset, scope):
     return current_app.response_class(pdf_file, content_type="application/pdf")
 
 
+# Pertinent de garder post et get ? On pourrait tout faire en post pour permettre de passer bcp d'arguments
+# ou faire un endpoint get avec pagination et un post /search poutr les recherches complexes
 @routes.route("/acquisition_frameworks", methods=["GET", "POST"])
 @login_required
 def get_acquisition_frameworks():
     """
-    Get a simple list of AF without any nested relationships
+    Get a simple list of AF without any nested relationships. The response is paginated, you can specify the number of
+    items per page with the `per_page` parameter and the the page number with parameter `page`.
+    The default value is 50 items per page. If you specify -1 for `per_page`, all items will be returned.
     Use for AF select in form
     Get the GeoNature CRUVED
     """
+
+    def safe_get(data, key, default=None, type=None):
+        value = data.get(key, default)
+        if value is None:
+            return default
+        try:
+            return type(value) if type else value
+        except (ValueError, TypeError):
+            return default
+
     only = ["+cruved"]
+
     # QUERY
     af_list = TAcquisitionFramework.filter_by_readable()
-    if request.is_json:
-        af_list = TAcquisitionFramework.filter_by_params(request.json, query=af_list)
+    params = request.get_json(silent=True) if request.method == "POST" else request.args
+    if params:
+        params_for_filter = params.copy()
+        params_for_filter.pop(
+            "datasets", None
+        )  # create a conflict with datasets param in filter by param
+        params_for_filter.pop("per_page", None)
+        params_for_filter.pop("page", None)
+        af_list = TAcquisitionFramework.filter_by_params(params_for_filter, query=af_list)
+
+    per_page = safe_get(params, "per_page", 50, type=int)
+    page = safe_get(params, "page", 1, type=int)
 
     af_list = af_list.order_by(TAcquisitionFramework.acquisition_framework_name).options(
         Load(TAcquisitionFramework).raiseload("*"),
@@ -521,16 +539,17 @@ def get_acquisition_frameworks():
             ),
         ),
     )
-    if request.args.get("datasets", default=False, type=int):
+
+    if safe_get(params, "datasets", default=False, type=int):
         only.extend(
             [
                 "datasets.+cruved",
             ]
         )
-    if request.args.get("creator", default=False, type=int):
+    if safe_get(params, "creator", default=False, type=int):
         only.append("creator")
         af_list = af_list.options(joinedload(TAcquisitionFramework.creator))
-    if request.args.get("actors", default=False, type=int):
+    if safe_get(params, "actors", default=False, type=int):
         only.extend(
             [
                 "cor_af_actor",
@@ -544,7 +563,7 @@ def get_acquisition_frameworks():
                 joinedload(CorAcquisitionFrameworkActor.nomenclature_actor_role),
             ),
         )
-        if request.args.get("datasets", default=False, type=int):
+        if safe_get(params, "datasets", default=False, type=int):
             only.extend(
                 [
                     "datasets.cor_dataset_actor",
@@ -560,51 +579,36 @@ def get_acquisition_frameworks():
                     ),
                 ),
             )
-    af_schema = AcquisitionFrameworkSchema(only=only)
-    return af_schema.jsonify(db.session.scalars(af_list).unique().all(), many=True)
 
+    af_schema = AcquisitionFrameworkSchema(only=only, many=True)
+    if per_page == -1:
+        items = db.session.scalars(af_list).unique().all()
+        result = {
+            "items": af_schema.dump(items),
+            "total": len(items),
+            "page": 1,
+            "pages": 1,
+            "per_page": len(items),
+            "has_next": False,
+            "has_prev": False,
+        }
+    else:
+        pagination = db.paginate(
+            select=af_list,
+            page=page,
+            per_page=per_page,
+        )
+        result = {
+            "items": af_schema.dump(pagination.items),
+            "total": pagination.total,
+            "page": pagination.page,
+            "pages": pagination.pages,
+            "per_page": pagination.per_page,
+            "has_next": pagination.has_next,
+            "has_prev": pagination.has_prev,
+        }
 
-@routes.route("/list/acquisition_frameworks", methods=["GET"])
-@permissions.check_cruved_scope("R", get_scope=True, module_code="METADATA")
-def get_acquisition_frameworks_list(scope):
-    """
-    Get all AF with their datasets
-    Use in metadata module for list of AF and DS
-    Add the CRUVED permission for each row (Dataset and AD)
-
-    DEPRECATED use get_acquisition_frameworks instead
-
-    .. :quickref: Metadata;
-
-    :qparam list excluded_fields: fields excluded from serialization
-    :qparam boolean nested: Default False - serialized relationships. If false: remove add all relationships in excluded_fields
-
-    """
-    params = request.args.to_dict()
-    params["orderby"] = "acquisition_framework_name"
-
-    if "selector" not in params:
-        params["selector"] = None
-
-    nested_serialization = params.get("nested", False)
-    nested_serialization = True if nested_serialization == "true" else False
-    exclude_fields = []
-    if "excluded_fields" in params:
-        exclude_fields = params.get("excluded_fields").split(",")
-
-    if not nested_serialization:
-        # exclude all relationships from serialization if nested = false
-        exclude_fields = [db_rel.key for db_rel in inspect(TAcquisitionFramework).relationships]
-
-    acquisitionFrameworkSchema = AcquisitionFrameworkSchema(
-        only=["+cruved"], exclude=exclude_fields
-    )
-    return acquisitionFrameworkSchema.jsonify(
-        db.session.scalars(get_metadata_list(g.current_user, scope, params, exclude_fields))
-        .unique()
-        .all(),
-        many=True,
-    )
+    return jsonify(result)
 
 
 @routes.route(
