@@ -1,7 +1,7 @@
 """add c and d organism permissions
 
 Revision ID: 03ec871fb969
-Revises: b955b6d95d25
+Revises: 1f223c509a80
 Create Date: 2025-11-25 15:17:56
 
 """
@@ -12,7 +12,7 @@ import sqlalchemy as sa
 
 # revision identifiers, used by Alembic.
 revision = "03ec871fb969"
-down_revision = "b955b6d95d25"
+down_revision = "1f223c509a80"
 branch_labels = None
 depends_on = None
 
