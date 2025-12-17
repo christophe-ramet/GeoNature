@@ -72,7 +72,6 @@ export class AfFormComponent implements OnInit, AfterViewInit {
     });
   }
 
-
   handleDates(af, isParseElseFormat = false) {
     const handlingFunction = isParseElseFormat ? this.dateParser.parse : this.dateParser.format;
 
