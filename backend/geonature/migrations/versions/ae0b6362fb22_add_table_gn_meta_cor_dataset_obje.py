@@ -64,6 +64,9 @@ def upgrade():
         """
     )
 
+    # Remove "old" field
+    op.drop_column("t_datasets", "id_nomenclature_dataset_objectif", schema="gn_meta")
+
     # If gn_meta.cor_dataset_objectif_archive exists, copy it to gn_meta.cor_dataset_objectif
     from sqlalchemy.engine.reflection import Inspector
 
@@ -91,6 +94,13 @@ def upgrade():
 
 
 def downgrade():
+    # Create "old" field back
+    op.add_column(
+        "t_datasets",
+        sa.Column("id_nomenclature_dataset_objectif", sa.Integer, nullable=True),
+        schema="gn_meta",
+    )
+
     # Make an archive of the "new" table
     op.execute(
         """
