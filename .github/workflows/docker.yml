@@ -5,6 +5,7 @@ on:
     branches:
       - develop
       - ginco
+      - feat/ginco_add_multiple_objectif
   release:
     types: [published]
 
