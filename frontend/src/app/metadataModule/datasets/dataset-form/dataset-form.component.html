@@ -139,6 +139,16 @@
               data-qa="pnx-dataset-form-status-source"
             ></pnx-nomenclature>
           </div>
+          <div class="row">
+            <div class="col-md-6">
+              <pnx-nomenclature
+                label="{{ 'MetaData.DatasetCard.DataType' | translate }}"
+                [parentFormControl]="form.get('id_nomenclature_data_type_2')"
+                codeNomenclatureType="TYPE_DONNEES"
+                data-qa="pnx-dataset-form-type_donnees"
+              ></pnx-nomenclature>
+            </div>
+          </div>
 
           <div>
             <pnx-nomenclature
@@ -148,6 +158,17 @@
               codeNomenclatureType="JDD_OBJECTIFS"
               [bindAllItem]="true"
               data-qa="pnx-dataset-form-objectif"
+            ></pnx-nomenclature>
+          </div>
+
+          <div>
+            <pnx-nomenclature
+              [multiSelect]="true"
+              label="{{ 'MetaData.DatasetForm.EbvClasses' | translate }}"
+              [parentFormControl]="form.get('cor_classes_ebv')"
+              codeNomenclatureType="JDD_CLASSE_EBV"
+              [bindAllItem]="true"
+              data-qa="pnx-dataset-form-classe-ebv"
             ></pnx-nomenclature>
           </div>
 
