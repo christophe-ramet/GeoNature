@@ -1,7 +1,7 @@
 """add table gn_meta.cor_dataset_objectif
 
 Revision ID: ae0b6362fb22
-Revises: cb663f039774
+Revises: f6a1feb3f297
 Create Date: 2026-04-27 12:58:35.383337
 
 """
@@ -11,7 +11,7 @@ import sqlalchemy as sa
 
 # revision identifiers, used by Alembic.
 revision = "ae0b6362fb22"
-down_revision = "c3db57568f88"
+down_revision = "f6a1feb3f297"
 branch_labels = None
 depends_on = None
 
